@@ -4,7 +4,7 @@ const mysql = require('mysql')
 const pool = mysql.createPool({
     host: '127.0.0.1',
     user: 'root',
-    password: '19991116hjj',
+    password: '!momiji1',
     port: '3306',
     // typeCast:'false'
     // 不指定数据库
@@ -12,8 +12,8 @@ const pool = mysql.createPool({
 var poolMuti = mysql.createPool({
     host     : '127.0.0.1',
     user     : 'root',
-    password : '19991116hjj',
-    port       : '3306',          
+    password : '!momiji1',
+    port       : '3306',
     multipleStatements: true//创建时允许多语句
 });
 const sqlQuery = (sql, values) => {

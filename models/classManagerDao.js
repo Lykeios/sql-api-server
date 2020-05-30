@@ -2,20 +2,22 @@
 const db = require('../db');
 
 
-async function getClassInfo(id) {
+async function getClassInfo(teacher_id) {
     let myClass = [];
-    let sql = 'select * from `' + id + '`.`__class`';
-    let result1 = await db.sqlQuery(sql);
-    for (let i = 0; i < result1.data.length; i++) {
+    let sql = 'select * from `user`.`__class` where id in (select class_id from `user`.`__teacher_has_class` where teacher_id = ?)' ;
+    let teacherHasClass = await db.sqlQuery(sql,[teacher_id]);
+    for (let i = 0; i < teacherHasClass.data.length; i++) {
         let AClass = {};
-        AClass["class_id"] = result1.data[i].id;
-        sql = 'select * from `' + id + '`.`__' + result1.data[i].id + '`';
+        AClass["id"] = teacherHasClass.data[i].id;
+        AClass["class_id"] = teacherHasClass.data[i].class_id;
+        sql = 'select * from `user`.`__student` where id in (select student_id from `user`.`__class_has_student` where class_id = ?)';
         let students = [];
-        let result2 = await db.sqlQuery(sql);
-        for (let j = 0; j < result2.data.length; j++) {
+        let studentResults = await db.sqlQuery(sql,[teacherHasClass.data[i].id]);
+        for (let j = 0; j < studentResults.data.length; j++) {
             let Astudent = {};
-            Astudent["id"] = result2.data[j].id;
-            Astudent["name"] = result2.data[j].name;
+            Astudent["id"] = studentResults.data[j].id;
+            Astudent["student_id"] = studentResults.data[j].student_id;
+            Astudent["name"] = studentResults.data[j].student_name;
             students[j] = Astudent;
         }
         AClass["student"] = students;
@@ -27,22 +29,13 @@ async function getClassInfo(id) {
     };
 }
 
-async function deleteAStudent(id, student_id) {
+async function deleteAStudent(student_id) {
     try {
-        // 前端原因 没有班级号o(╯□╰)o
-        // 先找学生班级 从班级名单中删除
-        // 1.获得班级
-        let sql = 'select * from `' + id + '`.`__class`';
-        const classArr = await db.sqlQuery(sql);
-        // console.log(classArr.data);
-        // 遍历
-        for (let i = 0; i < classArr.data.length; i++) {
-            let class_id = classArr.data[i].id;
-            let sqlTemp = "DELETE FROM `" + id + "`.`__" + class_id + "` WHERE id = ?";
-            await db.sqlQuery(sqlTemp, [student_id]);
-        }
-        // 注销注册
-        sql = "DELETE FROM `user`.`student` WHERE id = ?";
+
+        let sql = 'delete from `user`.`__class_has_student` where student_id = ?';
+        await db.sqlQuery(sql, [student_id]);
+
+        sql = "DELETE FROM `user`.`__student` WHERE id = ?";
         await db.sqlQuery(sql, [student_id]);
         return {
             'status': 200,
@@ -56,33 +49,23 @@ async function deleteAStudent(id, student_id) {
     }
 }
 
-async function addAStudent(id, student) {
+async function addAStudent(teacher_id, student) {
     try {
         // 判断是否注册
-        let sql = "select * from `user`.`student` where id = ?";
-        let result1 = await db.sqlQuery(sql, [student.id]);
+        let sql = "select * from `user`.`__student` where student_id = ?";
+        let result1 = await db.sqlQuery(sql, [student.student_id]);
         if (result1.data.length > 0) {
-            let class_id = result1.data[0].class_id;
-            let teacher_id = result1.data[0].teacher_id;
             return {
                 'status': 201,
-                'data': "该学号已注册,班级: " + class_id + " ,教师号: " + teacher_id
+                'data': "该学号已注册"
             };
         }
         // 先注册
-        sql = "insert into `user`.`student` values(?,?,?,?,?)";
-        result1 = await db.sqlQuery(sql, [student.id, student.name, "123456", student.class, id]);
+        sql = "insert into `user`.`__student` values(?,?,?,?)";
+        let newStudent = await db.sqlQuery(sql, [null, student.student_id, "123456", student.name]);
         // 加入班级
-        sql = "select * from `" + id + "`.`__" + student.class + "` where id = ?";
-        result1 = await db.sqlQuery(sql, [student.id]);
-        if (result1.data.length > 0) {
-            return {
-                'status': 201,
-                'data': "该学号已在班级中,数据库异常，请联系管理员"
-            };
-        }
-        sql = "insert into `" + id + "`.`__" + student.class + "` values(?,?)";
-        result1 = await db.sqlQuery(sql, [student.id, student.name]);
+        sql = "insert into `user`.`__class_has_student` values (?,?)";
+        result1 = await db.sqlQuery(sql, [student.class_key, newStudent.data.insertId]);
         return {
             'status': 200,
             'data': "添加成功"
@@ -96,20 +79,19 @@ async function addAStudent(id, student) {
     }
 }
 
-async function deleteAClass(id, class_id) {
+async function deleteAClass(id) {
     try {
         // 从班级表中删除
-        sql = "DELETE FROM `" + id + "`.`__class` WHERE `id` = ?";
-        await db.sqlQuery(sql, [class_id]);
+        // sql = "DELETE FROM `" + id + "`.`__class` WHERE `id` = ?";
+        // await db.sqlQuery(sql, [class_id]);
+        let sql = 'DELETE FROM `user`.`__teacher_has_class` WHERE `class_id` = ?';
+        await db.sqlQuery(sql,[id]);
 
         // 注销注册
-        sql = 'DELETE FROM `user`.`student` WHERE `class_id` = ?';
-        await db.sqlQuery(sql, [class_id]);
+        sql = 'DELETE FROM `user`.`__class` WHERE `id` = ?';
+        await db.sqlQuery(sql, [id]);
 
-        // 删除班级表
-        sql = 'drop table if exists `' + id + '`.`__' + class_id + '`';
 
-        await db.sqlQuery(sql);
 
         return {
             'status': 200,
@@ -128,9 +110,9 @@ async function deleteAClass(id, class_id) {
 
 
 
-async function importAClass(id, class_id, classObj) {
+async function importAClass(teacher_key, class_id, classObj) {
     // 查找班级是否存在
-    let sql = 'select * from `' + id + '`.`__class` where `id` = ?';
+    let sql = 'select * from `user`.`__class` where `class_id` = ?';
     let result = await db.sqlQuery(sql, [class_id]);
     if (result.data.length > 0) {
         return {
@@ -139,12 +121,10 @@ async function importAClass(id, class_id, classObj) {
         };
     }
     // 添加班级
-    sql = 'insert into `' + id + '`.`__class` values(?)';
-    await db.sqlQuery(sql, [class_id]);
-
-    // 创建表
-    sql = "CREATE table if not EXISTS `" + id + "`.`__" + class_id + "` ( `id` VARCHAR(255) character set utf8, `name` VARCHAR(255) character set utf8)";
-    await db.sqlQuery(sql);
+    sql = 'insert into `user`.`__class` values(?,?)';
+    let newClass = await db.sqlQuery(sql, [null, class_id]);
+    sql = 'insert into `user`.`__teacher_has_class` values(?,?)';
+    await db.sqlQuery(sql, [teacher_key, newClass.data.insertId]);
 
 
     // 处理班级中的重复id
@@ -156,17 +136,17 @@ async function importAClass(id, class_id, classObj) {
     let exist = [];
     for (let i = 0; i < classObj.length; i++) {
         // 检查是否注册
-        sql = 'select * from `user`.`student` where `id` = ?';
+        sql = 'select * from `user`.`__student` where `student_id` = ?';
         let result2 = await db.sqlQuery(sql, [classObj[i].id]);
         if (result2.data.length > 0) {
             exist.push(classObj[i].id);
         } else {
             // 注册
-            sql = "insert into `user`.`student` values(?,?,?,?,?)";
-            await db.sqlQuery(sql, [classObj[i].id, classObj[i].name, "123456", class_id, id]);
+            sql = "insert into `user`.`__student` values(?,?,?,?)";
+            let newStudent = await db.sqlQuery(sql, [null, classObj[i].id, "123456", classObj[i].name]);
             // 加入班级
-            sql = 'insert into `' + id + '`.`__' + class_id + '` values(?,?)';
-            await db.sqlQuery(sql, [classObj[i].id, classObj[i].name]);
+            sql = 'insert into `user`.`__class_has_student` values(?,?)';
+            await db.sqlQuery(sql, [newClass.data.insertId, newStudent.data.insertId]);
         }
     }
     if (exist.length == 0) {
@@ -186,24 +166,36 @@ async function importAClass(id, class_id, classObj) {
 // 导出成绩
 async function exportGrade(id, class_id) {
     let returnResult = [];
-    // 获得所有可见实验
-    let nowTime = new Date().toLocaleDateString();
-    const result1 = await db.sqlQuery('SELECT * FROM `' + id + '`.`__experiment` where `reachTime` <= ?', [nowTime]);
-    for (let i = 0; i < result1.data.length; i++) {
-        let sql = 'select * from `' + id + '`.`__grade__' + result1.data[i].name + '` where `class` = ?';
-        let result2 = await db.sqlQuery(sql, [class_id])
-        let obj = {};
-        obj['name'] = result1.data[i].name;
-        let student = [];
-        for (let j = 0; j < result2.data.length; j++) {
+    // 根据class_id获取班级id
+    let class_key = (await db.sqlQuery('SELECT id FROM `user`.`__class` where class_id = ?', [class_id])).data[0].id;
+    let class_member = (await db.sqlQuery('select * from `user`.`__student` where id in (select student_id from `user`.`__class_has_student` where class_id = ?)', [class_key]));
 
-            let Astudent = {
-                id: result2.data[j].id,
-                name: result2.data[j].name,
-                grade: result2.data[j].grade
+    let sql = 'select * from `user`.`__mark`  where test_id in (select test_id from `user`.`__experiment_has_test` where exp_id in (select exp_id from `user`.`__teacher_has_experiment` where teacher_id =? )) order by (select student_id from `user`.`__student` where id in (select student_id from `user`.`__class_has_student` where class_id = ?))';
+    let mark = await db.sqlQuery(sql, [id, class_key]);
+
+    let Astudent = {};
+
+    for (let i = 0; i < class_member.data.length; i++) {
+        sql = 'select exp_name from `user`.`__experiment` where exp_id in (select exp_id from `user`.`__experiment_has_test` where  test_id = ?)';
+        let exp_name = await db.sqlQuery(sql, [mark.data[i].test_id]);
+        exp_name = exp_name.data[0].exp_name;
+        let obj = {};
+        obj['name'] = exp_name;
+        let student = [];
+        let full_mark = 0;
+        for(let j=0;j < mark.data[i].length;j++){
+            let tmp = {};
+            if(mark.data[j].isCorrect){
+                full_mark += mark.data[j].mark;
+            }
+        }
+
+            Astudent = {
+                id: class_member.data[i].student_id,
+                name: class_member.data[i].student_name,
+                grade: full_mark
             }
             student.push(Astudent);
-        }
         obj['student'] = student
         returnResult.push(obj);
     }

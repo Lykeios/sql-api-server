@@ -36,7 +36,7 @@ $(document).ready(function () {
             $("#s_mytest_aim").html(json.aim);
             $("#s_mytest_describe").html(json.describe);
             $("#s_mytest_tables").html(json.table);
-            $("#s_mytest_deadLine").html("截止日期 : " + json.deadline);
+            $("#s_mytest_endTime").html("截止日期 : " + json.endTime);
             if (json.isFinish == "n") {
                 $("#s_mytest_isFinish").html("完成情况 : 未完成");
             } else if (json.isFinish == "y") {

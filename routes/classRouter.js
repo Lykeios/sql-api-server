@@ -23,7 +23,7 @@ router.post('/delete/student', (req, res) => {
         id,
         student_id
     } = req.body;
-    classManagerDao.deleteAStudent(id, student_id).then((data) => {
+    classManagerDao.deleteAStudent(student_id).then((data) => {
         res.send(data);
     })
 })
@@ -44,7 +44,7 @@ router.post('/delete/class', (req, res) => {
         id,
         class_id
     } = req.body;
-    classManagerDao.deleteAClass(id, class_id).then((data) => {
+    classManagerDao.deleteAClass(id).then((data) => {
         res.send(data);
     })
 })

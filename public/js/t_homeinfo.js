@@ -15,8 +15,8 @@ $(document).ready(function info() {
                 let addtr = '<tr><th scope="row">' + (i + 1) + '</th>';
                 addtr += "<td>" + json[i].name + "</td>";
                 addtr += "<td>" + dateFormat(json[i].createTime) + "</td>";
-                addtr += "<td>" + dateFormat(json[i].reachTime) + "</td>";
-                addtr += "<td>" + dateFormat(json[i].deadline) + "</td>";
+                addtr += "<td>" + dateFormat(json[i].startTime) + "</td>";
+                addtr += "<td>" + dateFormat(json[i].endTime) + "</td>";
                 addtr += "<td>" + json[i].finish + "</td>";
                 addtr += '<td> <div class="progress progress-md mt-1 h-2">';
                 if (json[i].finish * 1.0 / json[i].all >= 0.5) {
@@ -40,7 +40,7 @@ $(document).ready(function info() {
             let j = 0;
             var now = new Date();
             for (var i = 0; i < json.length; i++) {
-                let a = (json[i].deadline).replace(/-/g, "/");
+                let a = (json[i].endTime).replace(/-/g, "/");
                 let dl = new Date(a);
                 if (dl >= now) {
                     upEx[j] = json[i];
@@ -54,10 +54,10 @@ $(document).ready(function info() {
                 trHTML += "<tr align='center'>" +
                     "<td>" + (i + 1) + "</td>" +
                     "<td>" + upEx[i].name + "</td>" +
-                    "<td>" + dateFormat(upEx[i].deadline) + "</td>" +
-                    "<td>" + dateFormat(upEx[i].reachTime) + "</td>" +
-                    "<td>" + '<a class="btn btn-sm btn-outline-danger" data-toggle="modal" data-target="#dateModal1" onclick="setDateModal1(\'' + upEx[i].name + '\',\'' + dateFormat(upEx[i].deadline) + '\')"><i class="fa fa-edit"></i>截止日期</a>\n' +
-                    '<a class="btn btn-sm btn-outline-primary" data-toggle="modal" data-target="#dateModal2" onclick="setDateModal2(\'' + upEx[i].name + '\',\'' + dateFormat(upEx[i].reachTime) + '\')"><i class="fa fa-edit"></i>可见日期</a>' +
+                    "<td>" + dateFormat(upEx[i].endTime) + "</td>" +
+                    "<td>" + dateFormat(upEx[i].startTime) + "</td>" +
+                    "<td>" + '<a class="btn btn-sm btn-outline-danger" data-toggle="modal" data-target="#dateModal1" onclick="setDateModal1(\'' + upEx[i].name + '\',\'' + dateFormat(upEx[i].endTime) + '\')"><i class="fa fa-edit"></i>截止日期</a>\n' +
+                    '<a class="btn btn-sm btn-outline-primary" data-toggle="modal" data-target="#dateModal2" onclick="setDateModal2(\'' + upEx[i].name + '\',\'' + dateFormat(upEx[i].startTime) + '\')"><i class="fa fa-edit"></i>可见日期</a>' +
                     "</td>" + "</tr>"
             }
             $("#upcomingExperimentTBody").append(trHTML);
@@ -489,7 +489,7 @@ function testDetail(name) {
 
 
 
-function confirmDeadline() {
+function confirmendTime() {
     // 获取信息
     let name = $("#dateModal1_name").val();
     let date = $("#dateModal1_date").val();
@@ -500,7 +500,7 @@ function confirmDeadline() {
             id: id,
             name: name,
             date: date,
-            type: "deadline"
+            type: "endTime"
         },
         success: function (data) {
             // alert(JSON.stringify(data));
@@ -526,7 +526,7 @@ function confirmDeadline() {
     })
 }
 
-function confirmReachTime() {
+function confirmstartTime() {
     // 获取信息
     let name = $("#dateModal2_name").val();
     let date = $("#dateModal2_date").val();
@@ -537,7 +537,7 @@ function confirmReachTime() {
             id: id,
             name: name,
             date: date,
-            type: "reachTime"
+            type: "startTime"
         },
         success: function (data) {
             if (data.error == 0) {
@@ -562,17 +562,17 @@ function confirmReachTime() {
 }
 
 
-function setDateModal1(name, deadline) {
+function setDateModal1(name, endTime) {
     // 设置模态框内部信息
     $("#dateModal1_name").val(name);
-    $("#dateModal1_date").val(deadline);
+    $("#dateModal1_date").val(endTime);
 
 }
 
-function setDateModal2(name, reachTime) {
+function setDateModal2(name, startTime) {
     // 设置模态框内部信息
     $("#dateModal2_name").val(name);
-    $("#dateModal2_date").val(reachTime);
+    $("#dateModal2_date").val(startTime);
 }
 
 
@@ -638,7 +638,7 @@ function deleteE(name) {
 
 // 按时间排序json
 function sortDate(a, b) {
-    return (a.deadline > b.deadline) ? 1 : -1;
+    return (a.endTime > b.endTime) ? 1 : -1;
 }
 
 // 日期转化

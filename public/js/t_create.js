@@ -220,7 +220,7 @@ function runSQL() {
                 // alert(arr);
                 // SELECT, 8, name, area, population, dat, f, d, s, ss, 上海, 2000, 1000, 2020-02-24, null, null, null, null, 北京, 2000, 3000, 2020-02-26, null, null, null, null, 纽约, 2000, 4000, 2020-02-20, null, null, null, null, 山东, 100, 100, 2020-02-19, null, null, null, nul
 
-                // 
+                //
                 // 显示表格
                 $("#result_div").children().remove();
                 //字段数
@@ -302,19 +302,19 @@ function createTest() {
     let aim = $("#aim").val();
     let describe = $("#describe").val();
     let table = $("#table").val();
-    let reachTime = $("#reachTime").val();
-    let deadline = $("#deadline").val();
+    let startTime = $("#startTime").val();
+    let endTime = $("#endTime").val();
     let problems = [];
     let answers = [];
 
-    if (name == "" || aim == "" || describe == "" || table == "" || reachTime == "" || deadline == "") {
+    if (name == "" || aim == "" || describe == "" || table == "" || startTime == "" || endTime == "") {
         notif({
             msg: "<b>信息填写不完整</b>",
             type: "error"
         });
         return;
     }
-    if (reachTime > deadline) {
+    if (startTime > endTime) {
         notif({
             msg: "<b>可见日期不能晚于截止日期</b>",
             type: "error"
@@ -347,8 +347,8 @@ function createTest() {
             aim: aim,
             describe: describe,
             table: table,
-            reachTime: reachTime,
-            deadline: deadline,
+            startTime: startTime,
+            endTime: endTime,
             problems: problems,
             answers: answers
         },
@@ -373,7 +373,7 @@ function createTest() {
 
     })
 
-    // alert(name+aim+describe+table+reachTime+deadline+problems+answers);
+    // alert(name+aim+describe+table+startTime+endTime+problems+answers);
 }
 
 

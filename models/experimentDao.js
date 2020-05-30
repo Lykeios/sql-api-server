@@ -9,10 +9,11 @@ const anlayzeSql = require('../utils/sql');
 // 数字转为sql类型
 const toSqlType = require('../utils/type');
 
-async function createExperiment(id, experiment) {
+async function createExperiment(teacher_id, experiment) {
     //    1.检查是否有重名的实验
+    let temp_exp_id;
     try {
-        let sql = "select * from `" + id + "`.`__experiment` where name = ?";
+        let sql = "select * from `user`.`__experiment` where exp_name = ?";
         let result = await db.sqlQuery(sql, [experiment.name]);
         if (result.data.length > 0) {
             return {
@@ -21,7 +22,7 @@ async function createExperiment(id, experiment) {
             };
         }
         // 2  不存在该实验 写入实验表
-        sql = "INSERT into `" + id + "`.`__experiment` VALUES (?,?,?,?,?,?,?)";
+        sql = "INSERT into `user`.`__experiment` VALUES (?,?,?,?,?,?,?,?,?)";
         let tableStr = '';
         // 处理table
         for (let i = 0; i < experiment.tables.length; i++) {
@@ -29,33 +30,17 @@ async function createExperiment(id, experiment) {
             tableStr += '    ';
         }
 
-        await db.sqlQuery(sql, [experiment.name, experiment.aim, experiment.desc, tableStr, new Date().toLocaleDateString(), experiment.reachTime, experiment.deadline]);
-        // 3 新建实验表
-        sql = "CREATE table if not EXISTS `" + id + "`.`__experiment__" + experiment.name + "`(`id` int primary key auto_increment not null ,`problem` varchar(1000) CHARACTER set utf8,`answer` VARCHAR(1000) CHARACTER set utf8);";
-        await db.sqlQuery(sql);
-        // 4.新建成绩表
-        sql = "CREATE table if not EXISTS `" + id + "`.`__grade__" + experiment.name + "`(`class` varchar(255) CHARACTER set utf8,`id` VARCHAR(255) CHARACTER set utf8,`name` VARCHAR(255) CHARACTER set utf8,`isFinish` VARCHAR(255) CHARACTER set utf8,`timeSub` date ,`grade` int,`answer`VARCHAR(3000) CHARACTER set utf8,`isCorrect` varchar(255))";
-        await db.sqlQuery(sql);
-        //  5.先查班级
-        sql = "select * from `" + id + "`.`__class`";
-        result = await db.sqlQuery(sql);
-
-        // 7.加入学生
-        for (let i = 0; i < result.data.length; i++) {
-            sql = "select * from `" + id + "`.`__" + result.data[i].id + "`";
-            let result2 = await db.sqlQuery(sql);
-            for (let j = 0; j < result2.data.length; j++) {
-                // 插入
-                sql = "insert into `" + id + "`.`__grade__" + experiment.name + "` values (?,?,?,'n',null,0,null,null)";
-                await db.sqlQuery(sql, [result.data[i].id, result2.data[j].id, result2.data[j].name]);
-            }
-        }
-        let answers = [];
+        let exp_result = await db.sqlQuery(sql, [null, experiment.name, experiment.aim, experiment.desc, 0, tableStr, new Date().toLocaleDateString(), experiment.reachTime, experiment.deadline]);
+        //新增映射关系
+        sql = "INSERT into `user`.`__teacher_has_experiment` VALUES (?,?)";
+        await db.sqlQuery(sql, [teacher_id, exp_result.data.insertId]);
         //8存答案 问题
         for (let i = 0; i < experiment.group.length; i++) {
-            answers[i] = answerUtil.handleAnswer(experiment.group[i].answer);
-            sql = "insert into `" + id + "`.`__experiment__" + experiment.name + "` values(?,?,?)";
-            await db.sqlQuery(sql, [(i + 1), experiment.group[i].problem, answers[i]]);
+            // answers[i] = answerUtil.handleAnswer(experiment.group[i].answer);
+            sql = "insert into `user`.`__test` values (?,?,?,?,?)";
+            let test_result = await db.sqlQuery(sql, [null, 0, experiment.group[i].score, experiment.group[i].problem, experiment.group[i].answer]);
+            sql = "insert into `user`.`__experiment_has_test` values (?,?)";
+            await db.sqlQuery(sql, [exp_result.data.insertId, test_result.data.insertId]);
         }
 
         return {
@@ -63,6 +48,7 @@ async function createExperiment(id, experiment) {
             'data': "创建成功"
         };
     } catch (e) {
+        console.log(e);
         return {
             'status': 400,
             'data': "服务器异常 稍后尝试"
@@ -76,26 +62,31 @@ async function getAllExperiment(teacher_id) {
     let experimentList = [];
 
     // 获取实验基本信息
-    const result1 = await db.sqlQuery('SELECT * FROM `' + teacher_id + '`.`__experiment`');
+    const teacher_has_exp = await db.sqlQuery('SELECT * FROM `user`.`__experiment` where exp_id in (select exp_id from `user`.__teacher_has_experiment where teacher_id = ?)',[teacher_id]);
 
-    for (let i = 0; i < result1.data.length; i++) {
+    for (let i = 0; i < teacher_has_exp.data.length; i++) {
         let anExperiment = {};
-        anExperiment["name"] = result1.data[i].name;
-        anExperiment['aim'] = result1.data[i].aim;
-        anExperiment['describe'] = result1.data[i].describe;
-        anExperiment['table'] = result1.data[i].table;
-        anExperiment["reachTime"] = result1.data[i].reachTime.toLocaleDateString();
-        anExperiment["deadline"] = result1.data[i].deadline.toLocaleDateString();
+        anExperiment["id"] = teacher_has_exp.data[i].exp_id;
+        anExperiment["name"] = teacher_has_exp.data[i].exp_name;
+        anExperiment['aim'] = teacher_has_exp.data[i].exp_aim;
+        anExperiment['describe'] = teacher_has_exp.data[i].exp_describe;
+        anExperiment['type'] = teacher_has_exp.data[i].exp_type;
+        anExperiment['exp_table'] = teacher_has_exp.data[i].exp_table;
+        anExperiment["createTime"] = teacher_has_exp.data[i].createTime.toLocaleDateString();
+        anExperiment["reachTime"] = teacher_has_exp.data[i].startTime.toLocaleDateString();
+        anExperiment["deadline"] = teacher_has_exp.data[i].endTime.toLocaleDateString();
 
         // 获取题目及问题
-        let sql = 'select * from `' + teacher_id + '`.`__experiment__' + result1.data[i].name + '`';
+        let sql = `select * from \`user\`.\`__test\` where test_id in (SELECT test_id from \`user\`.\`__experiment_has_test\` where exp_id = ${teacher_has_exp.data[i].exp_id})`;
 
-        let result2 = await db.sqlQuery(sql);
+        let tests = await db.sqlQuery(sql);
         let group = [];
-        for (let j = 0; j < result2.data.length; j++) {
+        for (let j = 0; j < tests.data.length; j++) {
             let a = {
-                problem: result2.data[j].problem,
-                answer: result2.data[j].answer
+                test_id: tests.data[j].test_id,
+                problem: tests.data[j].test,
+                answer: tests.data[j].answer,
+                score: tests.data[j].score
             }
             group[j] = a;
         }
@@ -112,22 +103,19 @@ async function getAllExperiment(teacher_id) {
 }
 
 
-async function editExperiment(id, name, experiment) {
+async function editExperiment(teacher_id, name, experiment) {
 
     // 1.更新实验表
-    let sql = "update `" + id + "`.`__experiment` set `aim`= ?,`describe` = ?,`reachTime`=?,`deadline`=? where `name` = ?";
+    let sql = "update `user`.`__experiment` set `exp_aim`= ?,`exp_describe` = ?,`startTime`=?,`endTime`=? where `exp_id` = ?";
 
-    await db.sqlQuery(sql, [experiment.aim, experiment.describe, experiment.reachTime, experiment.deadline, name]);
+    await db.sqlQuery(sql, [experiment.aim, experiment.describe, experiment.reachTime, experiment.deadline, experiment.id]);
 
     // 2 修改题目
 
     // 2修改题目 修改方式待修改 不使用删除表的方式 过于危险
-    sql = "delete from `" + id + "`.`__experiment__" + name + "`";
-    await db.sqlQuery(sql);
     for (let i = 0; i < experiment.group.length; i++) {
-        let answer = answerUtil.handleAnswer(experiment.group[i].answer);
-        sql = "insert into `" + id + "`.`__experiment__" + name + "` values(?,?,?)";
-        await db.sqlQuery(sql, [(i + 1), experiment.group[i].problem, answer]);
+        let sql = "update `user`.`__test` set `test`= ?,`answer` = ? where `test_id` = ?";
+        await db.sqlQuery(sql, [experiment.group[i].problem, experiment.group[i].answer, experiment.group[i].test_id]);
     }
 
     return {
@@ -138,13 +126,21 @@ async function editExperiment(id, name, experiment) {
 
 }
 
-async function getVisibleExperiment(teacher_id) {
+async function getVisibleExperiment(student_id) {
     // 获得当前可见的实验 可见日期<当前日期<截止日期
     let nowTime = new Date().toLocaleDateString();
-    const result1 = await db.sqlQuery('SELECT * FROM `' + teacher_id + '`.`__experiment` where `reachTime` <= ? and `deadline` >= ?', [nowTime, nowTime]);
+    let sql = 'select * from `user`.`__experiment` where exp_id in (' +
+        'select exp_id from `user`.`__teacher_has_experiment` where teacher_id = (' +
+        'select teacher_id from `user`.`__teacher_has_class` where class_id = (' +
+        'select class_id from `user`.`__class_has_student` where student_id = ?))) and ' +
+        'startTime < ? and endTime > ?'
+    const experiments = await db.sqlQuery(sql, [student_id, nowTime, nowTime ]);
     let arr = [];
-    for (let i = 0; i < result1.data.length; i++) {
-        arr.push(result1.data[i].name);
+    for (let i = 0; i < experiments.data.length; i++) {
+        let exp = {};
+        exp.id = experiments.data[i].exp_id;
+        exp.name = experiments.data[i].exp_name;
+        arr.push(exp);
     }
     return {
         'status': 200,
@@ -153,15 +149,17 @@ async function getVisibleExperiment(teacher_id) {
 }
 
 
-async function getExperimentInfo(teacher_id, test_name) {
+async function getExperimentInfo(exp_id) {
     // 获取实验基本信息
-    const result1 = await db.sqlQuery('SELECT * FROM `' + teacher_id + '`.`__experiment` where `name` =?', [test_name]);
+    const result1 = await db.sqlQuery('SELECT * FROM `user`.`__experiment` where exp_id =?', [exp_id]);
     if (result1.data.length > 0) {
         let obj = {
-            aim: result1.data[0].aim,
-            describe: result1.data[0].describe,
-            table: result1.data[0].table,
-            deadline: result1.data[0].deadline.toLocaleDateString()
+            id: result1.data[0].exp_id,
+            name: result1.data[0].exp_name,
+            aim: result1.data[0].exp_aim,
+            describe: result1.data[0].exp_describe,
+            table: result1.data[0].exp_table,
+            deadline: result1.data[0].endTime.toLocaleDateString()
         }
 
         return {
@@ -178,21 +176,26 @@ async function getExperimentInfo(teacher_id, test_name) {
 
 }
 
-async function getTest(teacher_id, testname) {
+async function getTest(exp_id) {
 
     // 获取题目及关联库表
     let test = {};
+    //let test_id = await db.sqlQuery("select test_id from `" + teacher_id + "`.`__test where `")
+    // 查找教师
+    let sql = 'select teacher_id from `user`.`__teacher_has_experiment` where exp_id = ?';
+    let sql_teacher_id = (await db.sqlQuery(sql,[exp_id]));
+    let teacher_id = sql_teacher_id.data[0].teacher_id
     // 查找题目
-    let sql = 'select * from `' + teacher_id + '`.`__experiment__' + testname + '`';
-    let result3 = await db.sqlQuery(sql);
+    sql = 'select * from `user`.`__test` where test_id in (select test_id from `user`.`__experiment_has_test` where exp_id = ?)';
+    let target_test = await db.sqlQuery(sql,[exp_id]);
     let problems = [];
-    for (let i = 0; i < result3.data.length; i++) {
-        problems[i] = result3.data[i].problem;
+    for (let i = 0; i < target_test.data.length; i++) {
+        problems[i] = target_test.data[i].test;
     }
     test["problems"] = problems;
     //查找关联库表
-    const result1 = await db.sqlQuery('SELECT * FROM `' + teacher_id + '`.`__experiment` where `name` = ?', [testname]);
-    let tables = result1.data[0].table.split("    ");
+    const result1 = await db.sqlQuery('SELECT * FROM `user`.`__experiment` where exp_id = ?', [exp_id]);
+    let tables = result1.data[0].exp_table.split("    ");
     // 去掉最后一项
     tables.pop();
     // 遍历
@@ -200,8 +203,9 @@ async function getTest(teacher_id, testname) {
     for (let i = 0; i < tables.length; i++) {
         let table = {};
         table["tableName"] = tables[i];
-        sql = "select * from `" + teacher_id + "`.`" + tables[i] + "`";
-        let t = await db.sqlQuery(sql);
+        // sql = "select * from `" + teacher_id + "`.`" + tables[i] + "`";
+        // let t = await db.sqlQuery(sql);
+        let t = await db.sqlQuery("select * from `dboj_" + teacher_id + "`.`" + tables[i] + "`");
         let field = new Map();
         for (let j = 0; j < t.fields.length; j++) {
             field.set(t.fields[j].name, toSqlType(t.fields[j].type));
@@ -234,17 +238,23 @@ async function getTest(teacher_id, testname) {
 
 
 // 学生测试创建临时表
-async function createTestTmpTable(id, teacher_id, testname) {
+async function createTestTmpTable(student_id, exp_id) {
 
     // 查找需要的表
     //查找关联库表
-    const result1 = await db.sqlQuery('SELECT * FROM `' + teacher_id + '`.`__experiment` where `name` = ?', [testname]);
-    let tablesArr = result1.data[0].table.split("    ");
+    const result1 = await db.sqlQuery('SELECT * FROM `user`.`__experiment` where `exp_id` = ?', [exp_id]);
+    let tablesArr = result1.data[0].exp_table.split("    ");
     // 去掉最后一项
     tablesArr.pop();
+
+    //查找教师
+    let sql = 'select teacher_id from `user`.`__teacher_has_class` where class_id in (select class_id from `user`.`__class_has_student` where student_id = ?)'
+    let temp_teacher_id = await db.sqlQuery(sql, [student_id]);
+    let teacher_id = temp_teacher_id.data[0].teacher_id;
+
     for (let i = 0; i < tablesArr.length; i++) {
         // 为了安全 先进行删除操作
-        let tempname = "`temp__" + teacher_id + "`.`" + id + "__" + tablesArr[i] + "`";
+        let tempname = "`temp__dboj_" + teacher_id + "`.`" + tablesArr[i] + "`";
 
 
         sql = "DROP table if EXISTS " + tempname;
@@ -252,7 +262,7 @@ async function createTestTmpTable(id, teacher_id, testname) {
         await db.sqlQuery(sql);
 
         // 创建表
-        let t_table = "`" + teacher_id + "`.`" + tablesArr[i] + "`";
+        let t_table = "`dboj_" + teacher_id + "`.`" + tablesArr[i] + "`";
 
         sql = "create table " + tempname + " like " + t_table;
 
@@ -272,11 +282,15 @@ async function createTestTmpTable(id, teacher_id, testname) {
 
 
 async function runTestSql(id, teacher_id, test_name, sql) {
+    // 获取教师id
+    let get_teacher_sql = 'SELECT * FROM `user`.`__teacher` where `id` in (select teacher_id from `user`.`__teacher_has_class` where class_id in (select class_id from `user`.`__class_has_student` where student_id = ?))'
+    let temp_teacher_id = await db.sqlQuery(get_teacher_sql,[id]);
+    teacher_id = temp_teacher_id.data[0].id;
     // 获取表
     // 查找需要的表
     //查找关联库表
-    const result1 = await db.sqlQuery('SELECT * FROM `' + teacher_id + '`.`__experiment` where `name` = ?', [test_name]);
-    let tablesArr = result1.data[0].table.split("    ");
+    const result1 = await db.sqlQuery('SELECT * FROM `user`.`__experiment` where `exp_id` = ?', [test_name]);
+    let tablesArr = result1.data[0].exp_table.split("    ");
     // 去掉最后一项
     tablesArr.pop();
 
@@ -286,16 +300,16 @@ async function runTestSql(id, teacher_id, test_name, sql) {
 
     // 暂不支持多语句操作
 
-    if (sqls.sqlCount > 1) {
-        return {
-            'status': -1,
-            'data': "暂不支持多语句操作"
-        };
-    }
+    // if (sqls.sqlCount > 1) {
+    //     return {
+    //         'status': -1,
+    //         'data': "暂不支持多语句操作"
+    //     };
+    // }
     if (sqls.type[0] == "DML") {
         // 替换学生sql中的数据库名
         for (let i = 0; i < tablesArr.length; i++) {
-            sqls.sqls[0] = sqls.sqls[0].replace("`" + tablesArr[i] + "`", "`temp__" + teacher_id + "`.`" + id + "__" + tablesArr[i] + "`");
+            sqls.sqls[0] = "use `temp__dboj_" + teacher_id + "`;"+sqls.sqls[0];
         }
 
         // 执行操作
@@ -305,7 +319,7 @@ async function runTestSql(id, teacher_id, test_name, sql) {
             // update/insert/delete
             try {
                 let sql = sqls.sqls[0];
-                let result = await db.sqlQuery(sql);
+                let result = await db.sqlQueryMuti(sql);
                 return {
                     'status': 200,
                     'data': {
@@ -323,20 +337,23 @@ async function runTestSql(id, teacher_id, test_name, sql) {
             // select
             try {
                 let sql = sqls.sqls[0];
-                let result = await db.sqlQuery(sql);
+                let result = await db.sqlQueryMuti(sql);
                 // 先保存字段
                 let fields = [];
                 for (let i = 0; i < result.fields.length; i++) {
-                    fields[i] = result.fields[i].name;
+                    fields[i] = result.fields[1][i].name;
                 }
                 // 保存data
                 let rows = [];
                 for (let i = 0; i < result.data.length; i++) {
                     let aRow = "";
-                    for (let a in result.data[i]) {
-                        aRow = aRow + result.data[i][a] + "$$$";
+                    for (let a in result.data[1][i]) {
+                        aRow = aRow + result.data[1][i][a] + "$$$";
                     }
-                    rows[i] = aRow;
+                    if (aRow !== ""){
+                        rows[i] = aRow;
+                    }
+
                 }
                 let msg = {
                     fields,
@@ -382,14 +399,44 @@ async function runTestSql(id, teacher_id, test_name, sql) {
     }
 }
 
+function isObjectValueEqual(a, b) {
+    var aProps = Object.getOwnPropertyNames(a);
+    var bProps = Object.getOwnPropertyNames(b);
+    if (aProps.length != bProps.length) {
+        return false;
+    }
+    for (var i = 0; i < aProps.length; i++) {
+        var propName = aProps[i]
 
-async function testSubmit(id, teacher_id, testname, answerArr) {
+        var propA = a[propName]
+        var propB = b[propName]
+        if ((typeof (propA) === 'object')) {
+            if (isObjectValueEqual(propA, propB)) {
+                // return true     这里不能return ,后面的对象还没判断
+            } else {
+                return false
+            }
+        } else if (propA !== propB) {
+            return false
+        } else { }
+    }
+    return true
+}
+
+
+async function testSubmit(id, exp_id, answerArr) {
+    try {
+    let subT = new Date().toLocaleDateString();
+    // 查找老师
+    let get_teacher_sql = 'select * from `user`.`__teacher` where id in (select teacher_id from `user`.`__teacher_has_experiment` where  exp_id = ?)' ;
+    let temp_teacher = await db.sqlQuery(get_teacher_sql,[exp_id]);
+    let teacher_key = temp_teacher.data[0].id;
     // 查找答案
-    let sql = 'select * from `' + teacher_id + '`.`__experiment__' + testname + '`';
-    let correctAnswer = await db.sqlQuery(sql);
+    let sql = 'select * from `user`.`__test` where test_id in (select test_id from `user`.`__experiment_has_test` where  exp_id = ?)' ;
+    let tests = await db.sqlQuery(sql,[exp_id]);
     let correctArr = [];
-    for (let i = 0; i < correctAnswer.data.length; i++) {
-        correctArr[i] = correctAnswer.data[i].answer;
+    for (let i = 0; i < tests.data.length; i++) {
+        correctArr[i] = tests.data[i].answer;
     }
     // 比较答案
     // 答案是否正确的序列 y n
@@ -401,53 +448,34 @@ async function testSubmit(id, teacher_id, testname, answerArr) {
         answerArr[i] = answerArr[i].replace(/\s+/g, ' ');
         answerArr[i] = answerArr[i].trim();
         let temp = correctArr[i].split("$$$");
-        let bool = false;
-        for (let k = 0; k < temp.length - 1; k++) {
-            if (answerArr[i] == (temp[k].trim())) {
-                record[i] = "y";
-                bool = true;
+
+        sql = correctArr[i];
+        sql = "use `temp__dboj_" + teacher_key + "`;"+sql;
+        let correctSql = await db.sqlQueryMuti(sql);
+        sql = answerArr[i];
+        sql = "use `temp__dboj_" + teacher_key + "`;"+sql;
+        let answerSql = await db.sqlQueryMuti(sql);
+
+
+        for (let k = 0; k < temp.length; k++) {
+            //若运行结果相同，写入成绩表并记为正确
+            if (isObjectValueEqual(correctSql.data[1], answerSql.data[1])) {
+                sql = 'insert into `user`.`__mark` values (?,?,?,?,?,?,?,?)';
+                await db.sqlQuery(sql,[tests.data[i].test_id, id, 1, subT, 0, tests.data[i].score, answerArr[i], 1]);
+            } else {
+                //若运行结果不同，写入成绩表并记为错误
+                sql = 'insert into `user`.`__mark` values (?,?,?,?,?,?,?,?)';
+                await db.sqlQuery(sql,[tests.data[i].test_id, id, 1, subT, 0, tests.data[i].score, answerArr[i], 0]);
             }
         }
-        if (bool == false) {
-            record[i] = "n";
-        }
-    }
-    // 计算分数 将答案序列和正确序列存入数据库表
-    let c = 0;
-    for (let count = 0; count < record.length; count++) {
-        if (record[count] == "y") {
-            c++;
-        }
-    }
-    // 分数
-    let grade = parseInt(c * 1.0 / record.length * 100);
-
-    // 答案序列
-    let answerQ = "";
-    for (let i = 0; i < answerArr.length; i++) {
-        answerQ += answerArr[i];
-        answerQ += "$$$";
-    }
-    // 正确序列
-    let correctQ = "";
-    for (let i = 0; i < record.length; i++) {
-        correctQ += record[i];
-        correctQ += "$$$";
     }
 
-
-    // 存入数据库
-
-    let subT = new Date().toLocaleDateString();
-
-    sql = "update `" + teacher_id + "`.`__grade__" + testname + "` set `isFinish` = 'y',`timeSub` = '" + subT + "' , `grade` = " + grade + " ,`answer` = '" + answerQ + "' , `isCorrect` = '" + correctQ + "' where `id` = '" + id + "'";
-    try {
-        await db.sqlQuery(sql);
         return {
             'status': 200,
             'data': "提交成功"
         };
     } catch (error) {
+        console.log(error)
         return {
             'status': 400,
             'data': "提交失败"
@@ -458,34 +486,45 @@ async function testSubmit(id, teacher_id, testname, answerArr) {
 
 
 
-async function getGrade(id, teacher_id, testname) {
-    // 获得成绩 问题 答案 是否正确  提交时间
+async function getGrade(id, test_id) {
+    // 获得成绩
     let data = {};
-    let sql = "select * from `" + teacher_id + "`.`__grade__" + testname + "` where id = ?";
-    let result = await db.sqlQuery(sql, id);
+    let sql = "select * from `user`.`__mark` where student_id = ? and test_id in (select test_id from `user`.`__experiment_has_test` where exp_id = ?)";
+    let result = await db.sqlQuery(sql, [id, test_id]);
     // 若未完成则返回未完成即可
-    if (result.data[0].isFinish == 'n') {
+    if (result.data[0].isFinish != undefined && result.data[0].isFinish == 0) {
         return {
             'status': 201,
             'data': '该实验尚未完成'
         }
-    } else if (result.data[0].isFinish == 'y') {
-        data["grade"] = result.data[0].grade;
-        data["answer"] = result.data[0].answer;
-        data["isCorrect"] = result.data[0].isCorrect;
+    } else if (result.data[0].isFinish != undefined && result.data[0].isFinish == 1) {
+        //获取实验名
+        sql = 'select * from `user`.`__experiment` where exp_id = ?';
+        let exp_name = await db.sqlQuery(sql,[test_id]);
+        exp_name = exp_name.data[0].exp_name;
+        data.exp_name = exp_name;
+        //获取试题属性
+        sql = 'select * from `user`.`__test` where test_id in (select test_id from `user`.`__mark` where student_id = ? and test_id in (select test_id from `user`.`__experiment_has_test` where exp_id = ?))';
+        let result2 = await db.sqlQuery(sql,[id, test_id]);
+        //记录学生成绩
+        let full_mark = 0;
+        let output = [];
 
-        if (result.data[0].timeSub != null)
-            data["timeSub"] = result.data[0].timeSub.toLocaleDateString();
-        else
-            data['timeSub'] = null
-        // 获得问题
-        sql = 'select * from `' + teacher_id + '`.`__experiment__' + testname + '`';
-        let result2 = await db.sqlQuery(sql);
-        let problem = [];
-        for (let i = 0; i < result2.data.length; i++) {
-            problem[i] = result2.data[i].problem;
+        for(let i=0;i<result.data.length;i++){
+            let tmp = {};
+            if(result.data[i].isCorrect){
+                full_mark += result.data[i].mark;
+            }
+            tmp.mark = result.data[i].mark;
+            tmp.test = result2.data[i].test;
+            tmp.answer = result.data[i].answer;
+            tmp.isCorrect = result.data[i].isCorrect;
+            tmp.subTime = formatDate(result.data[i].subTime);
+            output.push(tmp);
         }
-        data["problem"] = problem;
+        data.full_mark = full_mark;
+        data.output = output;
+
         return {
             'status': 200,
             'data': data
@@ -497,6 +536,38 @@ async function getGrade(id, teacher_id, testname) {
         }
     }
 
+
+}
+
+function formatDate(date, format) {
+    if (!date) return;
+    if (!format)
+        format = "yyyy-MM-dd";
+    switch (typeof date) {
+        case "string":
+            date = new Date(date.replace(/-/, "/"));
+            break;
+        case "number":
+            date = new Date(date);
+            break;
+    }
+    if (!date instanceof Date) return;
+    var dict = {
+        "yyyy" : date.getFullYear(),
+        "M" : date.getMonth() + 1,
+        "d" : date.getDate(),
+        "H" : date.getHours(),
+        "m" : date.getMinutes(),
+        "s" : date.getSeconds(),
+        "MM" : ("" + (date.getMonth() + 101)).substr(1),
+        "dd" : ("" + (date.getDate() + 100)).substr(1),
+        "HH" : ("" + (date.getHours() + 100)).substr(1),
+        "mm" : ("" + (date.getMinutes() + 100)).substr(1),
+        "ss" : ("" + (date.getSeconds() + 100)).substr(1)
+    };
+    return format.replace(/(yyyy|MM?|dd?|HH?|ss?|mm?)/g, function() {
+        return dict[arguments[0]];
+    });
 }
 
 

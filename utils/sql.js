@@ -5,10 +5,10 @@ function analyzeSql(sql) {
     // 1.数量
     // 2.类型
     // a.先转换为小写
-    sql = sql.toLowerCase();
+    //sql = sql.toLowerCase();
     // b.分割
     let sqls = sql.split(";");
-    // 若最后一项为空 说明最后一句sql语句加了分号 直接pop 
+    // 若最后一项为空 说明最后一句sql语句加了分号 直接pop
     // 保留中间的空语句 不进行处理
     if (sqls[sqls.length - 1] == "") {
         sqls.pop();
@@ -22,10 +22,10 @@ function analyzeSql(sql) {
     //DDL 数据定义语言 create drop alter
     //DML 数据操作语言 select insert update delete
     //DCL 数据控制语言 commit rollback revoke grant
-    const DDL = ["create", "drop", "alter"];
-    const DML = ["select", "insert", "update", "delete"];
-    const DCL = ["commit", "rollback", "revoke", "grant"];
-    // 从安全角度出发 暂时只能处理DML类型的操作 
+    const DDL = ["create", "drop", "alter", "CREATE", "DROP", "ALTER"];
+    const DML = ["select", "insert", "update", "delete", "SELECT", "INSERT", "UPDATE", "DELETE"];
+    const DCL = ["commit", "rollback", "revoke", "grant", "COMMIT", "ROLLBACK", "REVOKE", "GRANT"];
+    // 从安全角度出发 暂时只能处理DML类型的操作
     // 其余操作会对表的关系及数据结构产生不可预知错误 暂时不支持
     // 按照优先级判断 DDL>DML>DCL
     let type = [];

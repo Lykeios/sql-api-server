@@ -39,37 +39,34 @@ router.post('/experiment/edit', (req, res) => {
 
 router.post('/getVisibleExperiment', (req, res) => {
     let {
-        teacher_id,
+        student_id,
     } = req.body;
-    experimentDao.getVisibleExperiment(teacher_id).then(data => {
+    experimentDao.getVisibleExperiment(student_id).then(data => {
         res.send(data);
     })
 })
 router.post('/getExperimentInfo', (req, res) => {
     let {
-        teacher_id,
-        test_name
+        exp_id
     } = req.body;
-    experimentDao.getExperimentInfo(teacher_id,test_name).then(data => {
+    experimentDao.getExperimentInfo(exp_id).then(data => {
         res.send(data);
     })
 })
 router.post('/testing', (req, res) => {
     let {
-        teacher_id,
         test_name
     } = req.body;
-    experimentDao.getTest(teacher_id,test_name).then(data => {
+    experimentDao.getTest(test_name).then(data => {
         res.send(data);
     })
 })
 router.post('/test/createTmpTable', (req, res) => {
     let {
         id,
-        teacher_id,
-        test_name
+        test_id
     } = req.body;
-    experimentDao.createTestTmpTable(id,teacher_id,test_name).then(data => {
+    experimentDao.createTestTmpTable(id,test_id).then(data => {
         res.send(data);
     })
 })
@@ -90,11 +87,10 @@ router.post('/runTestSql', (req, res) => {
 router.post('/test/submit', (req, res) => {
     let {
         id,
-        teacher_id,
-        test_name,
+        test_id,
         answer
     } = req.body;
-    experimentDao.testSubmit(id,teacher_id,test_name,answer).then(data => {
+    experimentDao.testSubmit(id,test_id,answer).then(data => {
         res.send(data);
     })
 })
@@ -102,10 +98,9 @@ router.post('/test/submit', (req, res) => {
 router.post('/student/getGrade', (req, res) => {
     let {
         id,
-        teacher_id,
-        test_name
+        test_id
     } = req.body;
-    experimentDao.getGrade(id,teacher_id,test_name).then(data => {
+    experimentDao.getGrade(id,test_id).then(data => {
         res.send(data);
     })
 })

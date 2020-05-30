@@ -20,27 +20,27 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- ----------------------------
 -- Table structure for root
 -- ----------------------------
-DROP TABLE IF EXISTS `root`;
-CREATE TABLE `root`  (
-  `pwd` varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci NULL DEFAULT NULL
+DROP TABLE IF EXISTS `__admin`;
+CREATE TABLE `__admin`  (
+  `pwd` varchar(20) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
+  primary key (pwd)
 ) ENGINE = InnoDB CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Records of root
 -- ----------------------------
-INSERT INTO `root` VALUES ('123qwert');
+INSERT INTO `__admin` VALUES ('123456');
 
 -- ----------------------------
 -- Table structure for student
 -- ----------------------------
-DROP TABLE IF EXISTS `student`;
-CREATE TABLE `student`  (
-  `id` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL,
-  `name` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL,
-  `pwd` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL,
-  `class_id` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL,
-  `teacher_id` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL
-) ENGINE = InnoDB CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = Compact;
+DROP TABLE IF EXISTS `__student`;
+CREATE TABLE `__student`  (
+  `id` int(11) primary key auto_increment NOT NULL ,
+  `student_id` varchar(12) NOT NULL ,
+  `pwd` varchar(20) NOT NULL ,
+  `student_name` varchar(20) NULL DEFAULT NULL
+) ENGINE = InnoDB CHARACTER SET = utf8 ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Records of student
@@ -48,11 +48,13 @@ CREATE TABLE `student`  (
 -- ----------------------------
 -- Table structure for teacher
 -- ----------------------------
-DROP TABLE IF EXISTS `teacher`;
-CREATE TABLE `teacher`  (
-  `id` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL,
-  `pwd` varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci NULL DEFAULT NULL,
-  `name` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL
-) ENGINE = InnoDB CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = Compact;
+DROP TABLE IF EXISTS `__teacher`;
+CREATE TABLE `__teacher`  (
+  `id` int(11) primary key auto_increment NOT NULL ,
+  `teacher_id` varchar(12) NOT NULL ,
+  `pwd` varchar(20) NOT NULL ,
+  `teacher_name` varchar(20) NULL DEFAULT NULL
+) ENGINE = InnoDB CHARACTER SET = utf8 ROW_FORMAT = Compact;
+
 
 SET FOREIGN_KEY_CHECKS = 1;

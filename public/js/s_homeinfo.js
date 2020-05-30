@@ -92,7 +92,7 @@ $(document).ready(function () {
             // alert(now);
             var now = new Date();
             for (var i = 0; i < json.length; i++) {
-                let a = (json[i].deadline).replace(/-/g, "/");
+                let a = (json[i].endTime).replace(/-/g, "/");
                 let dl = new Date(a);
                 if (dl >= now) {
                     upEx[j] = json[i];
@@ -107,7 +107,7 @@ $(document).ready(function () {
                 trHTML += "<tr align='center'>" +
                     "<td>" + (i + 1) + "</td>" +
                     "<td>" + upEx[i].name + "</td>" +
-                    "<td>" + upEx[i].deadline + "</td>" +
+                    "<td>" + upEx[i].endTime + "</td>" +
                     "<td>" + upEx[i].problemCount + "</td>" +
                     "<td> <div class=\"progress progress-md mt-auto h-2\">\n" +
                     "                                                <div class=\"progress-bar  progress-bar-animated bg-success\" style=\"width:" + toPercent(upEx[i].progress) + "\"></div>\n" +
@@ -291,7 +291,7 @@ $(document).ready(function () {
                  //测试水平导航栏id
                  var addMyGrade = "<li aria-haspopup=\"true\"><a href=\"/student/mygrade?teacher_id=" + teacher_id + "&testname=" + json[i].name + "&id=" + id + "\">" + json[i].name + "</a></li>";
                  $("#myGrade").append(addMyGrade);
- 
+
 
 
                 var sub = "未提交";
@@ -361,5 +361,5 @@ function toPercent(point) {
 
 // 按时间排序json
 function sortDate(a, b) {
-    return (a.deadline > b.deadline) ? 1 : -1;
+    return (a.endTime > b.endTime) ? 1 : -1;
 }
